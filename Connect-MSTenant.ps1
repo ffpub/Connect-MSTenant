@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Microsoft Service Delegated Access Connection Helper for Interactive Logins
+Connection Helper for Interactive Logins to Microsoft Service using Delegated Access
 .DESCRIPTION
 Wrapper for connection commands to streamline:
 	Connecting multiple services at once.
