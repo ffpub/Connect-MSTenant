@@ -17,10 +17,8 @@ On the first run with -Find, or if the list is too old, MSOnline & AzAccounts wi
 If CSV File is not clean, delete it
 
 Todo: 
-	Thoroughly test Sharepoint & Graph 
-	Allow Sharepoint to use CSV for TenantInfo & -Find
-	Find works with sharepoint I just broke it by changing the params
-	Add Access Token and Cert Auth Commands (Cert Thumbnail From Params)
+	Thoroughly test Graph 
+	Add Access Token and Cert Auth Commands (Cert thumbnail From Params)
 
 .PARAMETER Find
 Tenant or AzSubrciption Search Term
@@ -40,9 +38,10 @@ Connect AzureAD
 Connect Az.Accounts
 .PARAMETER PnPPowershell
 Connect PnP.Powershell
+Requires either -SharepointAdminURL or -Find to specify destination
 Cannot be used in combination with other service connection params
 .PARAMETER SharepointAdminURL
-If connecting with PnP.Powershell, SharepointAdminURL is required
+If connecting with PnP.Powershell, specify destination with -SharepointAdminURL "URL"
 .PARAMETER DisconnectAll
 Completely Disconnect All Services
 This overrides any other arguments and exits when done
@@ -71,6 +70,7 @@ Search for "TenantName" in tenant info CSV and connect specified services
 Vebose logging enabled
 .EXAMPLE
 Connect-MSTenant -PnPPowershell -SharepointAdminURL "https://tenant-admin.sharepoint.com" -DebugLogging
+Connect-MSTenant -PnPPowershell -Find "TenantName" -DebugLogging
 
 Connect to specified Sharepoint tenancy
 Vebose logging enabled
@@ -93,11 +93,13 @@ param (
 	[Parameter(ParameterSetName='Services',Mandatory=$false)][Switch]$MSOnline,
 	[Parameter(ParameterSetName='Services',Mandatory=$false)][Switch]$AzureAD,
 	[Parameter(ParameterSetName='Services',Mandatory=$false)][Switch]$AzAccounts,
-	[Parameter(ParameterSetName='Sharepoint',Mandatory=$false)][switch]$PnPPowershell,      
-	[Parameter(ParameterSetName='Sharepoint',Mandatory=$true)][string]$SharepointAdminURL,
+	[Parameter(ParameterSetName='Services',Mandatory=$false)]
+		[switch]$PnPPowershell,
+	[Parameter(ParameterSetName='Services',Mandatory=$false)]
+		[Uri]$SharepointAdminURL,
 	[Parameter(ParameterSetName='DisconnectAll',Mandatory=$false)][Switch]$DisconnectAll,
-	[Parameter(ParameterSetName='ShowHelp',Mandatory=$false)][Switch]$Help
-
+	[Parameter(ParameterSetName='ShowHelp',Mandatory=$false)]
+		[Switch]$Help
 )
 
 $DateStarted = Get-Date
@@ -177,10 +179,12 @@ If ($Params) { $Script:Services_Params = $Params.Keys | % { if ( -not ( $IgnoreP
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
 $Script:RunningAsAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 
+if (-not $Script:Services_Params) { Log -Warning "[Usage] No Parameters provided. Check Connect-MSTenant -Help for examples" }
+if ($PnpPowershell -and (-not $SharepointAdminURL -and -not $Find )) { Log -Warning "[Usage] -PnPPowershell requires a URL, provided either by -SharepointAdminUrl `"URL`" or `-Find (from CSV)" ; exit }
 if( $Global:PSVersionTable.PSVersion.Major -eq 7 -and $AzureAD ) { Log -Warning "[Compatibility] AzureAD Doesn't Work in PS7" }
 if( $Global:PSVersionTable.PSVersion.Major -eq 7 -and $MSOnline ) { Log -Warning "[Compatibility] MSOnline MFA Prompt Doesn't Work in PS7" }
 #if ( $Global:PSVersionTable.PSVersion.Major -eq 5 -and $AzAccounts) { Log -Warning "[Compatibility] Az Accounts Doesn't Work in PS5" }
-if ($AzureAD -and $AzAccounts) { Log -Warning "[Conflict] AzureAD And AzAccounts Cannot be Used Together" }
+#if ($AzureAD -and $AzAccounts) { Log -Warning "[Conflict] AzureAD And AzAccounts Cannot be Used Together" }
 if (-not ($Script:RunningAsAdmin) ) { Log "[CurrentUser] Not running as admin; If module requires installation, this will be done from user context and require installation again next time." }
 
 
@@ -497,7 +501,7 @@ $Script:ServiceList = @(
 	@{
 		ModuleName = "PnP.Powershell" 
 		ConnectCommand =   [scriptblock]::Create(" Connect-PnPOnline -Interactive -Url `$Script:SharepointAdminUrl ")
-		ConnectTenantCommand = [scriptblock]::Create(" Connect-PnPOnline -Interactive -Url `$DelegatedTenantSharepointAdminUrl " )
+		ConnectTenantCommand = [scriptblock]::Create(" Connect-PnPOnline -Interactive -Url `$CurrentConnection.CurrentDestination " )
 		GetConnectedTenantNameCommand = [scriptblock]::Create(" (Get-pnpContext).Url ")
 		IsConnectedCommand =   [scriptblock]::Create(" Get-PnPConnection -ErrorAction SilentlyContinue ")
 		IsTenantConnectedCommand =   [scriptblock]::Create(" Get-PnpConnection " )
@@ -554,7 +558,7 @@ function ServiceHandler {
 	$ConnectionState = [PSCustomObject]@{
 		CurrentTenant = $null
 		CurrentDestination = $null
-		DestinationTenant = if ($Find -and $SpecifiedServiceName -eq 'AzAccounts') {$Script:AzSubscriptionName} else { $PartnerName }
+		DestinationTenant = if ($Find -and $SpecifiedServiceName -eq 'AzAccounts') {$Script:AzSubscriptionName} elseif ($Find -and $SpecifiedServiceName -eq 'PnPPowershell')  { $Script:SharepointAdminUrl } else { $PartnerName }
 		ConnectedToCSP = $null
 		ReturningToCSP = $null
 		Connected = $null
@@ -588,6 +592,9 @@ function ServiceHandler {
 		}
 
 		if ($ConnectService) {
+
+			#TODO Not spedified fro CSV; Connecting to desired service and prompting for that tenancy's credentials
+
 			Log "Checking and installing module for $($SpecifiedService.ModuleName)"
 
 			$RequiredModulesAreInstalled = CheckModulesInstalled -SpecifiedService $SpecifiedService
@@ -601,6 +608,7 @@ function ServiceHandler {
 
 					if ($CurrentConnection.ConnectedToCSP -or $CurrentConnection.Connected) {
 						#If Updating CSV, Connected to something already
+						Log "Initial check: Connected; Disconnecting"
 						ServiceHandler -SpecifiedServiceName $SpecifiedServiceName -DisconnectService -Connection $CurrentConnection | out-null
 					}
 				}
@@ -623,7 +631,7 @@ function ServiceHandler {
 
 		if ($ConnectToTenantService) {
 
-			#TODO If servicename is msol, connect to CSP then set TenantID in tenant stage
+			#TODO If servicename is msol/Exo/, connect to CSP then set TenantID in tenant stage
 			#TODO If not msol, connect to Tenant
 			#TODO If not correct Tenant, disconnect and connect service to Tenant (Not to CSP; Only MSOL ought to connect to CSP?)
 
@@ -671,12 +679,22 @@ function ServiceHandler {
 					ServiceHandler -SpecifiedServiceName $SpecifiedServiceName -DisconnectService -Connection $CurrentConnection
 					$CurrentConnection = ConnectToSpecifiedService -SpecifiedService $SpecifiedService -Connection $CurrentConnection		
 				}
-				elseif ($CurrentConnection.Connected -eq $False) {
-					$CurrentConnection.CurrentDestination = $Script:CSPName
-					Log "New Connection to CSP Tenancy [ $($CurrentConnection.CurrentTenant) ]"
+				elseif ($CurrentConnection.Connected -eq $False -and $SpecifiedServiceName -eq "PnPPowershell") {
+					Log "New Connection to Sharepoint: [ $($CurrentConnection.DestinationTenant) ]"
 					$CurrentConnection = ConnectToSpecifiedService -SpecifiedService $SpecifiedService -Connection $CurrentConnection
+				}
+				elseif ($CurrentConnection.Connected -and $SpecifiedServiceName -eq "PnPPowershell" -and ($CurrentConnection.CurrentTenant -notlike "$($CurrentConnection.DestinationTenant)*" )) {
+					Log "[$SpecifiedServiceName] Disconnecting from Sharepoint: [ $($CurrentConnection.CurrentTenant) ]"
+					ServiceHandler -SpecifiedServiceName $SpecifiedServiceName -DisconnectService -Connection $CurrentConnection
 
-					
+					$CurrentConnection.ReturningToCSP = $False
+					$CurrentConnection.CurrentDestination = $CurrentConnection.DestinationTenant
+					Log "[$SpecifiedServiceName] Connecting to Sharepoint: [ $($CurrentConnection.CurrentDestination) ]"
+					$CurrentConnection = ConnectToSpecifiedService -SpecifiedService $SpecifiedService -TenantConnection -Connection $CurrentConnection
+				}
+				elseif ($CurrentConnection.Connected -and $SpecifiedServiceName -eq "PnPPowershell" -and ($CurrentConnection.CurrentTenant -like "$($CurrentConnection.DestinationTenant)*" )) {
+					Log -Success "[$SpecifiedServiceName] Already connected to Sharepoint: [ $($CurrentConnection.CurrentTenant) ]"
+					$Success = $True
 				}
 				elseif ($CurrentConnection.CurrentTenant -eq $CurrentConnection.DestinationTenant) {
 					Log -Success "[$SpecifiedServiceName] Already connected to [ $($CurrentConnection.CurrentTenant) ] "
@@ -708,6 +726,10 @@ function ServiceHandler {
 					
 					if ($CurrentConnection.CurrentTenant -eq $CurrentConnection.DestinationTenant) {
 						Log -Success "[$SpecifiedServiceName] New Connection to tenant Successful: $($CurrentConnection.CurrentTenant)"
+						$Success = $True
+					}
+					elseif ($CurrentConnection.Connected -and $SpecifiedServiceName -eq "PnPPowershell" -and ($CurrentConnection.CurrentTenant -like "$($CurrentConnection.DestinationTenant)*" )) {
+						Log -Success "[$SpecifiedServiceName] New Connection to Sharepoint Successful: $($CurrentConnection.CurrentTenant) ]"
 						$Success = $True
 					}
 					else {
