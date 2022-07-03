@@ -3,10 +3,10 @@
 Microsoft Service Delegated Access Connection Helper for Interactive Logins
 .DESCRIPTION
 Wrapper for connection commands to streamline:
-	Connecting multiple services at once
-	Switching betweeen tenancies an account has delegated access to
+	Connecting multiple services at once.
+	Switching betweeen tenancies an account has delegated access to.
 
-Until MSOnline stops connecting this saves a lot of time entering MFA when switching ExchangeOnline Tenancies
+This saves a lot of time entering MFA when switching between tenancies using delegated access
 
 Connecting MSOnline first will avoid needing to re-use MFA for delegated tenant logins
 ExchangeOnlineManagement will re-use MSOnline's authentication
@@ -25,7 +25,7 @@ Todo:
 .PARAMETER Find
 Tenant or AzSubrciption Search Term
 Using Find when connecting will use matching tenant info from Tenant Info CSV to connect
-If Find is not used, service is logged into with admin credentials (delegated access and tenant list not required)
+If Find is not used, service prompts for login, use their admin credentials (delegated access and tenant list not checked if Find is not used)
 .PARAMETER DebugLogging
 Enable Verbose Logging
 .PARAMETER ExchangeOnlineManagement
