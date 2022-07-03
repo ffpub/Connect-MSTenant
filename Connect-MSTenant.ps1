@@ -55,8 +55,10 @@ Connect-MSTenant.ps1 -ExchangeOnlineManagement
 Connect specified service with provided credentials
 .EXAMPLE
 Connect-MSTenant -ExchangeOnlineManagement -Find "TenantName"
+Connect-MSTenant -ExchangeOnlineManagement -AzAccounts -Find "TenantName"
 
-Search for "TenantName" in tenant info CSV and connect specified service
+
+Search for "TenantName" in tenant info CSV and connect specified service/s
 .EXAMPLE
 Connect-MSTenant -ExchangeOnlineManagement -Find "TenantName" -DisconnectAll
 
