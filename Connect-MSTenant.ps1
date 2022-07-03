@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Microsoft Service Delegated Access Connection Helper for Interactive Logins
+Connection Helper for Interactive Logins to Microsoft Service using Delegated Access
 .DESCRIPTION
 Wrapper for connection commands to streamline:
 	Connecting multiple services at once.
@@ -116,11 +116,6 @@ $TenantInfoCSVFilePath = (get-childitem $PROFILE).Directory.FullName + "\365Tena
 #	Connect-IPPSSession -UserPrincipalName $globalAdminAcct
 #TODO Get Access Token from Az Module to use with REST API calls - See also: Get-AzAccessToken.ps1 
 #Get-AzAccessToken -ResourceTypeName MSGraph
-#Get-AzAccessToken -ResourceTypeName Arm
-
-#Also Possible using ADAL Binaries? May be shorter duration
-#$cache = [Microsoft.IdentityModel.Clients.ActiveDirectory.TokenCache]::DefaultShared
-#$cache.ReadItems()
 
 
 if ($Help) {
