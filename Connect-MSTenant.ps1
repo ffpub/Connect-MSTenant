@@ -78,7 +78,6 @@ Vebose logging enabled
 System.String
 .NOTES
 	FunctionName : Connect-MSTenant
-	Created by   : Fraser Fitzgerald
 	Last Update  : v4 2/7/22
 .LINK
 	https://github.com/ffitz-public/Connect-MSTenant
@@ -154,7 +153,9 @@ function Log {
 
 	if ( $DebugLogging -or $Success -or $Warning) {
 		write-host -ForegroundColor $Colour $Content
+		
 	}
+	#Add-Content $LOGFILEPATH $Content
 }
 
 
